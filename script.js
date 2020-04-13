@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         ранобэ.рф trello integration (add comment of current page into a card)
-// @namespace    https://github.com/adelobosko/DI.FM
+// @namespace    https://raw.githubusercontent.com/adelobosko/xn--80ac9aeh6f.xn--p1ai/master/script.js
 // @description  ранобэ.рф trello integration (add comment of current page into a card)
 // @include      https://ранобэ.рф/*
 // @include      https://xn--80ac9aeh6f.xn--p1ai/*
