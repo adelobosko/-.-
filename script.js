@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         ранобэ.рф trello integration (add comment of current page into a card)
 // @namespace    https://raw.githubusercontent.com/adelobosko/xn--80ac9aeh6f.xn--p1ai/master/script.js
-// @description  ранобэ.рф trello integration (add comment of current page into a card)
+// @description  ранобэ.рф trello integration (add comment (current page of novel) into a card)
 // @include      https://ранобэ.рф/*
 // @include      https://xn--80ac9aeh6f.xn--p1ai/*
 // @grant        none
 // @author       Alexey Delobosko
-// @version      1.0
+// @version      1.2
 // @grant GM_setValue
 // @grant GM_getValue
 // @run-at document-idle
@@ -25,6 +25,8 @@ var domainName = 'xn--80ac9aeh6f.xn--p1ai';
 
 var trelloIconId = 'trelloIcon';
 var trelloMenuId = 'trelloMenu';
+
+var currentChapterText = '';
 
 
 const TrelloStatus = {
@@ -92,7 +94,7 @@ function setCookie(name, value, options = {}) {
 
 
 function redirectToTrello(){
-  var url = trelloAccessUrl+encodeURIComponent(document.location);
+  var url = trelloAccessUrl+encodeURIComponent(document.location.toString());
   document.location = url;
 }
 
@@ -131,10 +133,11 @@ function getCards(boardId){
 
 var menu = {
 	'create': function (boards) {
-    var logoutHtml = '<i id="trelloLogout" style="padding-left:5px;float:left;color:red;cursor:pointer;" class="fas fa-sign-out-alt"></i>';
+    this.isShown = !this.isShown;
+    var logoutHtml = '<i id="trelloLogout" style="font-size:24px;padding-left:5px;float:left;color:red;cursor:pointer;" class="fas fa-sign-out-alt"></i>';
     var cardIconColor = trelloCardId ? 'green' : 'white';
-    var cardHtml = '<i id="trelloCard" style="padding-left:10px;float:left;color:'+cardIconColor+';cursor:pointer;" class="far fa-credit-card"></i>';
-    var menuHtml = '<div id="'+trelloMenuId+'" style="display:none;width:120px;position:fixed;bottom:64px;">'+logoutHtml+cardHtml+'</div>';
+    var cardHtml = '<i id="trelloCard" style="font-size:24px;padding-left:10px;float:left;color:'+cardIconColor+';cursor:pointer;" class="far fa-credit-card"></i>';
+    var menuHtml = '<div id="'+trelloMenuId+'" style="display:'+(this.isShown ? 'block' : 'none')+';width:120px;position:fixed;bottom:64px;">'+logoutHtml+cardHtml+'</div>';
     
     
     var boardsHtml = 'Select board:<br><select id="trelloBoardSelect" value="-1">';
@@ -148,7 +151,8 @@ var menu = {
     }
     boardsHtml += '</select>';
     
-    var selectCardHtml = '<div id="trelloSelectCard" style="color:green;display:none;width:80%;height:90%;position:fixed;top:10px;left:10px;">'+boardsHtml+cardsHtml+'</div>';
+    
+    var selectCardHtml = '<div id="trelloSelectCard" style="font-size:24px;color:green;display:'+($('#trelloSelectCard').css('display') === 'block' && this.isShown ? 'block' : 'none')+';width:80%;height:90%;position:fixed;top:10px;left:10px;">'+boardsHtml+cardsHtml+'</div>';
     
     if($('#'+trelloMenuId).length > 0){
       $('#'+trelloMenuId).remove();
@@ -175,7 +179,7 @@ var menu = {
     });
     $('#trelloCard').unbind();
     $('#trelloCard').click(function(){
-      $('#trelloSelectCard').css('display', 'block');
+      $('#trelloSelectCard').css('display', ($('#trelloSelectCard').css('display') === 'none' ? 'block' : 'none'));
     });
 
     $('#trelloLogout').unbind();
@@ -183,21 +187,27 @@ var menu = {
      if(confirm('Do you want to delete access token?')){
         clearCookie(trelloCookieName, domainName);
         clearCookie(trelloCardIdCookieName, domainName);
+        trelloCardId = '';
+        trelloToken = '';
         createTrelloIcon();
+        menu.showOrHide(false);
       }
     });
-    this.isCreated = true;
-    this.showOrHide();
   },
 	'showOrHide': function(force){
     if($('#'+trelloMenuId).length > 0){
-      this.isShown = force || !this.isShown;
+      if(force === true || force === false){
+        this.isShown = force;
+      }
+      else {
+        this.isShown = !this.isShown;
+      }
       $('#'+trelloMenuId).css('display', this.isShown ? 'block' : 'none');
+      $('#'+trelloSelectCard).css('display', (this.isShown  && $('#trelloSelectCard').css('display') === 'none' ? 'block' : 'none'));
       return;
     }
   },
-  'isShown': false,
-  'isCreated': false
+  'isShown': false
 };
 
 
@@ -286,10 +296,39 @@ function checkTrelloStatus(){
 }
 
 
+function getChapterText(){
+  var chapter = $('.ChapterContent__title');
+  if(chapter.length > 0) {
+    return chapter[0].innerText;
+  }
+  
+  return currentChapterText;
+}
+
+
+function sendPageStatus(){
+  if(trelloStatus !== TrelloStatus.ALLOWED_CONFIGURED){
+    return;
+  }
+  
+  var chapterText = getChapterText();
+  
+  
+  if(currentChapterText === chapterText){
+    return;
+  }
+  
+  var text = chapterText+'\r\n'+document.location.toString();
+  addComment(trelloCardId, text);
+  currentChapterText = chapterText;
+}
+
+
 function checkStatus(){
   checkUrl();
   trelloStatus = checkTrelloStatus();
   createTrelloIcon();
+  sendPageStatus();
   
   setTimeout(checkStatus, 3000);
 }
